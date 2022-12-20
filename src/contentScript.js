@@ -20,7 +20,7 @@ const creator = () => {
   ulElement.setAttribute('class', 'flex gap-3.5 overflow-y-auto');
   ulElement.setAttribute(
     'style',
-    'flex-wrap: wrap;flex: 1 0 auto; height: 10px;'
+    'flex-wrap: wrap;flex: 1 0 auto; height: 500px;'
   );
 
   const searchInputElement = document.createElement('input');
@@ -89,6 +89,7 @@ const creator = () => {
     divContainer.appendChild(ulElement);
   }
 
+  document.querySelector('h1').parentNode.lastChild.remove();
   document.querySelector('h1').parentNode.appendChild(divContainer);
 };
 
