@@ -6,6 +6,11 @@ This extension allows you to use ready prompts on ChatGPT.
 
 It uses [Awesome ChatGPT Prompts](https://github.com/f/awesome-chatgpt-prompts) repository as its datasource.
 
+## Download
+
+Get it from the Chrome extension store: [Add to Chrome](https://chrome.google.com/webstore/detail/chatgpt-prompts/igaldenhhkaelahplnglcdcfmmhhmgdj)
+
+
 ## Quick Overview
 
 Then follow these instructions to see your extension:
