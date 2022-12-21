@@ -1,9 +1,9 @@
 {
   "name": "chatgpt-prompt-extension",
   "version": "0.1.0",
-  "description": "ChatGPT Prompt Extension",
+  "description": "ChatGPT Prompts",
   "author": "Cem PEHLİVAN",
-  "repository": "",
+  "repository": "https://github.com/cempehlivan/chatgpt-prompt-chrome-extension",
   "private": true,
   "scripts": {
     "watch": "webpack --mode=development --watch --config config/webpack.config.js",

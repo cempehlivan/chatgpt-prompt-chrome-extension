@@ -1,3 +1,5 @@
+![logo](https://raw.githubusercontent.com/cempehlivan/chatgpt-prompt-chrome-extension/main/public/icons/icon_128.png)
+
 # ChatGPT Prompt Chrome Extension
 
 This extension allows you to use ready prompts on ChatGPT.
