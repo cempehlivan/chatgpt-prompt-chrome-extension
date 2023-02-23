@@ -6,6 +6,25 @@ document.onreadystatechange = () => {
   }
 };
 
+let currentTitle = document.title;
+
+const observer = new MutationObserver((mutations) => {
+  if (document.title !== currentTitle) {
+    currentTitle = document.title;
+
+    if (document.location.pathname == '/chat') {
+      setTimeout(creator, 500);
+    }
+  }
+});
+
+const config = { subtree: true, childList: true };
+observer.observe(document, config);
+
+window.addEventListener('beforeunload', function (event) {
+  observer.disconnect();
+});
+
 const creator = () => {
   var divContainer = document.createElement('div');
   divContainer.setAttribute('class', 'flex flex-1 flex-col pt-5');
@@ -20,7 +39,7 @@ const creator = () => {
   ulElement.setAttribute('class', 'flex gap-3.5 overflow-y-auto');
   ulElement.setAttribute(
     'style',
-    'flex-wrap: wrap;flex: 1 0 auto; height: 500px;'
+    'flex-wrap: wrap;flex: 1 0 auto; height: 500px; align-items: flex-start;'
   );
 
   const searchInputElement = document.createElement('input');
