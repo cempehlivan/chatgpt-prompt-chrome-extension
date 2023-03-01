@@ -27,7 +27,7 @@ window.addEventListener('beforeunload', function (event) {
 
 const creator = () => {
   var divContainer = document.createElement('div');
-  divContainer.setAttribute('class', 'flex flex-1 flex-col pt-5');
+  divContainer.setAttribute('class', 'flex flex-1 flex-grow-0 ml-auto mr-auto flex-col pt-5 md:max-w-2xl lg:max-w-3xl');
 
   const titleElement = document.createElement('h2');
   titleElement.setAttribute('class', 'mb-3');
@@ -108,8 +108,16 @@ const creator = () => {
     divContainer.appendChild(ulElement);
   }
 
-  document.querySelector('h1').parentNode.lastChild.remove();
-  document.querySelector('h1').parentNode.appendChild(divContainer);
+  var h1Element = document.querySelector('h1');
+  h1Element.classList.add("mt-6");
+  h1Element.classList.remove("flex-grow");
+
+  var h1ElementParent = h1Element.parentNode;
+
+  if (h1ElementParent.lastChild.nodeName != 'H1') {
+    h1ElementParent.lastChild.remove();
+  }
+  h1ElementParent.appendChild(divContainer);
 };
 
 const csvToArray = (str, delimiter = ',') => {
