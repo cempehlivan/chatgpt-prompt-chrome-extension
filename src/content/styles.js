@@ -157,6 +157,11 @@ html.dark .cgpe-cat-image .cgpe-card-icon svg { color: #ED93B1; }
   border-color: var(--cgpe-border-strong);
 }
 .cgpe-field-textarea { min-height: 120px; resize: vertical; }
+.cgpe-field-hint { margin: 0; font-size: 11.5px; color: var(--cgpe-subtext); }
+.cgpe-field-hint code {
+  background: var(--cgpe-chip-bg); color: var(--cgpe-text); padding: 1px 5px; border-radius: 4px;
+  font-family: monospace; font-size: 11px;
+}
 .cgpe-field-inline { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 .cgpe-field-inline .cgpe-field { flex: 1; min-width: 140px; }
 .cgpe-checkbox-row {

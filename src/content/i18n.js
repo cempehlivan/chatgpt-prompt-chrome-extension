@@ -34,6 +34,9 @@ const LOCALES = {
     fillVariablesTitle: 'Değişkenleri Doldur',
     previewLabel: 'Önizleme',
     useTemplate: 'Kullan',
+    variableHint: 'İpucu: Kullanıcının dolduracağı alanlar ekleyebilirsin:',
+    variableExampleSimple: '${isim}',
+    variableExampleDefault: '${şehir:İstanbul}',
   },
   en: {
     title: 'Ready Prompts',
@@ -70,6 +73,9 @@ const LOCALES = {
     fillVariablesTitle: 'Fill in variables',
     previewLabel: 'Preview',
     useTemplate: 'Use',
+    variableHint: 'Tip: you can add fields for the user to fill in:',
+    variableExampleSimple: '${name}',
+    variableExampleDefault: '${city:New York}',
   },
 };
 

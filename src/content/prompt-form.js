@@ -25,8 +25,21 @@ export function buildPromptForm({ onCancel, onSubmit, onDelete }) {
   promptTextarea.className = 'cgpe-field-textarea';
   promptTextarea.placeholder = STRINGS.promptPlaceholder;
   promptTextarea.required = true;
+
+  const promptHint = document.createElement('p');
+  promptHint.className = 'cgpe-field-hint';
+  promptHint.appendChild(document.createTextNode(`${STRINGS.variableHint} `));
+  const exampleSimple = document.createElement('code');
+  exampleSimple.textContent = STRINGS.variableExampleSimple;
+  promptHint.appendChild(exampleSimple);
+  promptHint.appendChild(document.createTextNode(', '));
+  const exampleDefault = document.createElement('code');
+  exampleDefault.textContent = STRINGS.variableExampleDefault;
+  promptHint.appendChild(exampleDefault);
+
   promptField.appendChild(promptLabel);
   promptField.appendChild(promptTextarea);
+  promptField.appendChild(promptHint);
 
   const inlineRow = document.createElement('div');
   inlineRow.className = 'cgpe-field-inline';
