@@ -4,78 +4,192 @@ const CSV_URL =
   'https://raw.githubusercontent.com/f/prompts.chat/refs/heads/main/prompts.csv';
 const CACHE_KEY = 'cgpePromptsCache';
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const ROOT_ID = 'cgpe-prompts-root';
+const TRIGGER_ID = 'cgpe-trigger';
+const OVERLAY_ID = 'cgpe-overlay';
 const STYLE_ID = 'cgpe-prompts-style';
 const BATCH_SIZE = 60;
 const SEARCH_DEBOUNCE_MS = 200;
 
+const ICONS = {
+  sparkles:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.4L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.6L12 2z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z"/></svg>',
+  search:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  close:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>',
+  code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/></svg>',
+  message:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.8 8.4 8.6 8.6 0 0 1-3.3-.6L3 21l1.7-5A8.4 8.4 0 1 1 21 11.5z"/></svg>',
+  braces:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3a3 3 0 0 0-3 3v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a3 3 0 0 0 3 3"/><path d="M16 3a3 3 0 0 1 3 3v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a3 3 0 0 1-3 3"/></svg>',
+  photo:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+};
+
 const FILTERS = [
-  { key: 'all', label: 'Tümü', test: () => true },
-  { key: 'devs', label: 'Geliştirici', test: (p) => p.for_devs === 'TRUE' },
-  { key: 'text', label: 'Metin', test: (p) => p.type === 'TEXT' },
+  { key: 'all', label: 'Tümü', icon: 'grid', test: () => true },
+  {
+    key: 'devs',
+    label: 'Geliştirici',
+    icon: 'code',
+    test: (p) => p.for_devs === 'TRUE',
+  },
+  {
+    key: 'text',
+    label: 'Metin',
+    icon: 'message',
+    test: (p) => p.type === 'TEXT',
+  },
   {
     key: 'structured',
     label: 'Yapılandırılmış',
+    icon: 'braces',
     test: (p) => p.type === 'STRUCTURED',
   },
-  { key: 'image', label: 'Görsel', test: (p) => p.type === 'IMAGE' },
+  {
+    key: 'image',
+    label: 'Görsel',
+    icon: 'photo',
+    test: (p) => p.type === 'IMAGE',
+  },
 ];
 
+function getCategoryMeta(prompt) {
+  if (prompt.for_devs === 'TRUE') {
+    return { icon: 'code', className: 'cgpe-cat-devs' };
+  }
+  if (prompt.type === 'STRUCTURED') {
+    return { icon: 'braces', className: 'cgpe-cat-structured' };
+  }
+  if (prompt.type === 'IMAGE') {
+    return { icon: 'photo', className: 'cgpe-cat-image' };
+  }
+  return { icon: 'message', className: 'cgpe-cat-text' };
+}
+
 const STYLE_TEXT = `
-.cgpe-root { max-width: 768px; margin: 24px auto 0; padding: 0 4px; color: var(--cgpe-text); }
-html:not(.dark) .cgpe-root {
+.cgpe-trigger {
+  display: inline-flex; align-items: center; gap: 8px; margin: 20px auto 0; padding: 8px 16px 8px 12px;
+  border-radius: 999px; border: 0.5px solid var(--cgpe-border); background: var(--cgpe-card-bg);
+  color: var(--cgpe-text); font-size: 13.5px; font-weight: 500; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cgpe-trigger:hover { background: var(--cgpe-card-hover); border-color: var(--cgpe-border-strong); }
+.cgpe-trigger-icon {
+  width: 22px; height: 22px; border-radius: 7px; background: var(--cgpe-accent-bg); display: flex;
+  align-items: center; justify-content: center; flex: none;
+}
+.cgpe-trigger-icon svg { width: 13px; height: 13px; color: var(--cgpe-accent-fg); }
+.cgpe-trigger-count {
+  font-size: 11.5px; color: var(--cgpe-subtext); background: var(--cgpe-chip-bg); border-radius: 999px;
+  padding: 2px 8px;
+}
+html:not(.dark) .cgpe-trigger, html:not(.dark) .cgpe-overlay {
   --cgpe-text: #111827; --cgpe-subtext: #6b7280; --cgpe-card-bg: #ffffff;
-  --cgpe-card-hover: #f3f4f6; --cgpe-border: #e5e7eb; --cgpe-chip-bg: #f3f4f6;
-  --cgpe-chip-active-bg: #111827; --cgpe-chip-active-text: #ffffff; --cgpe-input-bg: #ffffff;
+  --cgpe-card-hover: #f6f6f7; --cgpe-border: #e5e7eb; --cgpe-border-strong: #d1d5db;
+  --cgpe-chip-bg: #f3f4f6; --cgpe-chip-active-bg: #111827; --cgpe-chip-active-text: #ffffff;
+  --cgpe-input-bg: #ffffff; --cgpe-overlay-bg: rgba(15, 15, 15, 0.45); --cgpe-accent-bg: #EEEDFE;
+  --cgpe-accent-fg: #3C3489;
 }
-html.dark .cgpe-root {
-  --cgpe-text: #ececec; --cgpe-subtext: #9b9b9b; --cgpe-card-bg: #2f2f2f;
-  --cgpe-card-hover: #3a3a3a; --cgpe-border: #3f3f3f; --cgpe-chip-bg: #3a3a3a;
-  --cgpe-chip-active-bg: #ececec; --cgpe-chip-active-text: #111111; --cgpe-input-bg: #2f2f2f;
+html.dark .cgpe-trigger, html.dark .cgpe-overlay {
+  --cgpe-text: #ececec; --cgpe-subtext: #9b9b9b; --cgpe-card-bg: #2a2a2a;
+  --cgpe-card-hover: #333333; --cgpe-border: #3a3a3a; --cgpe-border-strong: #4a4a4a;
+  --cgpe-chip-bg: #333333; --cgpe-chip-active-bg: #ececec; --cgpe-chip-active-text: #111111;
+  --cgpe-input-bg: #242424; --cgpe-overlay-bg: rgba(0, 0, 0, 0.6); --cgpe-accent-bg: #3C3489;
+  --cgpe-accent-fg: #CECBF6;
 }
-.cgpe-title { font-size: 1.05rem; font-weight: 600; margin: 0 0 12px; }
-.cgpe-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.cgpe-overlay {
+  position: fixed; inset: 0; z-index: 2147483647; background: var(--cgpe-overlay-bg);
+  display: none; align-items: flex-start; justify-content: center; padding: 6vh 16px;
+  backdrop-filter: blur(2px);
+}
+.cgpe-overlay.cgpe-open { display: flex; }
+.cgpe-modal {
+  width: 100%; max-width: 720px; max-height: 84vh; background: var(--cgpe-input-bg);
+  border: 0.5px solid var(--cgpe-border); border-radius: 18px; display: flex; flex-direction: column;
+  overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+.cgpe-modal-header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 12px; }
+.cgpe-modal-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; color: var(--cgpe-text); }
+.cgpe-modal-title-icon {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--cgpe-accent-bg); display: flex;
+  align-items: center; justify-content: center;
+}
+.cgpe-modal-title-icon svg { width: 14px; height: 14px; color: var(--cgpe-accent-fg); }
+.cgpe-close-btn {
+  margin-left: auto; width: 30px; height: 30px; border-radius: 9px; border: none; background: transparent;
+  color: var(--cgpe-subtext); display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.cgpe-close-btn:hover { background: var(--cgpe-chip-bg); color: var(--cgpe-text); }
+.cgpe-close-btn svg { width: 16px; height: 16px; }
+.cgpe-modal-controls { padding: 0 18px 12px; }
+.cgpe-search-wrap { position: relative; margin-bottom: 10px; }
+.cgpe-search-wrap svg {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px;
+  color: var(--cgpe-subtext); pointer-events: none;
+}
 .cgpe-search {
-  width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--cgpe-border);
-  background: var(--cgpe-input-bg); color: var(--cgpe-text); font-size: 0.9rem; outline: none;
-  box-sizing: border-box;
+  width: 100%; box-sizing: border-box; padding: 10px 14px 10px 38px; border-radius: 12px;
+  border: 0.5px solid var(--cgpe-border); background: var(--cgpe-card-bg); color: var(--cgpe-text);
+  font-size: 14px; outline: none;
 }
-.cgpe-search:focus { border-color: var(--cgpe-chip-active-bg); }
+.cgpe-search:focus { border-color: var(--cgpe-border-strong); }
 .cgpe-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .cgpe-chip {
-  border: 1px solid var(--cgpe-border); background: var(--cgpe-chip-bg); color: var(--cgpe-text);
-  border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  display: inline-flex; align-items: center; gap: 6px; border: 0.5px solid var(--cgpe-border);
+  background: transparent; color: var(--cgpe-subtext); border-radius: 999px; padding: 6px 13px;
+  font-size: 12.5px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
 }
-.cgpe-chip:hover { filter: brightness(1.08); }
-.cgpe-chip-active { background: var(--cgpe-chip-active-bg); color: var(--cgpe-chip-active-text); border-color: transparent; }
-.cgpe-meta { font-size: 0.78rem; color: var(--cgpe-subtext); margin-bottom: 8px; min-height: 16px; }
-.cgpe-list-wrapper { position: relative; height: 520px; }
-.cgpe-empty-state { padding: 32px 0; text-align: center; color: var(--cgpe-subtext); font-size: 0.85rem; }
+.cgpe-chip svg { width: 13px; height: 13px; }
+.cgpe-chip:hover { border-color: var(--cgpe-border-strong); color: var(--cgpe-text); }
+.cgpe-chip-active {
+  background: var(--cgpe-chip-active-bg); color: var(--cgpe-chip-active-text); border-color: transparent;
+}
+.cgpe-meta { padding: 0 18px 10px; font-size: 12px; color: var(--cgpe-subtext); min-height: 15px; }
+.cgpe-empty-state { padding: 40px 0; text-align: center; color: var(--cgpe-subtext); font-size: 13px; }
 .cgpe-grid {
-  list-style: none; margin: 0; padding: 0 4px 12px 0; height: 100%; overflow-y: auto;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
-  align-content: start;
+  list-style: none; margin: 0; padding: 0 18px 18px; overflow-y: auto; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; align-content: start;
 }
 .cgpe-card {
-  position: relative; background: var(--cgpe-card-bg); border: 1px solid var(--cgpe-border);
-  border-radius: 10px; padding: 12px 14px; min-height: 64px; display: flex; align-items: center;
-  cursor: pointer; transition: background 0.15s ease, transform 0.1s ease;
+  display: flex; gap: 11px; align-items: flex-start; background: var(--cgpe-card-bg);
+  border: 0.5px solid var(--cgpe-border); border-radius: 13px; padding: 11px 12px; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.cgpe-card:hover { background: var(--cgpe-card-hover); transform: translateY(-1px); }
+.cgpe-card:hover { background: var(--cgpe-card-hover); border-color: var(--cgpe-border-strong); }
+.cgpe-card-icon { width: 32px; height: 32px; flex: none; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.cgpe-card-icon svg { width: 16px; height: 16px; }
+.cgpe-cat-devs .cgpe-card-icon { background: var(--cgpe-accent-bg); }
+.cgpe-cat-devs .cgpe-card-icon svg { color: var(--cgpe-accent-fg); }
+html:not(.dark) .cgpe-cat-text .cgpe-card-icon { background: #E1F5EE; }
+html:not(.dark) .cgpe-cat-text .cgpe-card-icon svg { color: #085041; }
+html.dark .cgpe-cat-text .cgpe-card-icon { background: #085041; }
+html.dark .cgpe-cat-text .cgpe-card-icon svg { color: #9FE1CB; }
+html:not(.dark) .cgpe-cat-structured .cgpe-card-icon { background: #FAEEDA; }
+html:not(.dark) .cgpe-cat-structured .cgpe-card-icon svg { color: #854F0B; }
+html.dark .cgpe-cat-structured .cgpe-card-icon { background: #412402; }
+html.dark .cgpe-cat-structured .cgpe-card-icon svg { color: #EF9F27; }
+html:not(.dark) .cgpe-cat-image .cgpe-card-icon { background: #FBEAF0; }
+html:not(.dark) .cgpe-cat-image .cgpe-card-icon svg { color: #72243E; }
+html.dark .cgpe-cat-image .cgpe-card-icon { background: #4A1528; }
+html.dark .cgpe-cat-image .cgpe-card-icon svg { color: #ED93B1; }
+.cgpe-card-body { min-width: 0; }
 .cgpe-card-title {
-  font-size: 0.85rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 13.5px; font-weight: 500; color: var(--cgpe-text); line-height: 1.35; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
 }
-.cgpe-badge {
-  position: absolute; top: 8px; right: 8px; font-size: 0.65rem; padding: 2px 6px;
-  border-radius: 999px; background: var(--cgpe-chip-bg); color: var(--cgpe-subtext);
+.cgpe-card-subtitle {
+  font-size: 12px; color: var(--cgpe-subtext); margin-top: 3px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
 }
-.cgpe-sentinel { height: 1px; }
+.cgpe-sentinel { height: 1px; grid-column: 1 / -1; }
 `;
 
 let isInitializing = false;
 let pendingTimer = null;
+let promptsPromise = null;
+let modalController = null;
 
 document.onreadystatechange = () => {
   if (document.readyState === 'complete') {
@@ -113,7 +227,7 @@ function scheduleInit(delay) {
 }
 
 async function init() {
-  if (isInitializing || document.getElementById(ROOT_ID)) {
+  if (isInitializing || document.getElementById(TRIGGER_ID)) {
     return;
   }
 
@@ -127,28 +241,30 @@ async function init() {
   try {
     injectStyles();
 
-    h1Element.classList.add('mt-6');
-    h1Element.classList.remove('flex-grow');
-
     const h1ElementParent = h1Element.parentNode;
-    const { root, ul, searchInput, chipsRow, metaEl, emptyStateEl } =
-      buildSkeleton();
-    h1ElementParent.appendChild(root);
+    const trigger = buildTrigger();
+    h1ElementParent.appendChild(trigger);
 
-    let promptArray = [];
-    try {
-      promptArray = await getPrompts();
-    } catch (err) {
-      promptArray = [];
+    if (!modalController) {
+      modalController = buildModal();
+      document.body.appendChild(modalController.overlay);
     }
 
-    if (!promptArray.length) {
-      metaEl.textContent =
-        'Promptlar yüklenemedi. Lütfen daha sonra tekrar deneyin.';
-      return;
-    }
+    promptsPromise = getPrompts()
+      .then((prompts) => {
+        const countEl = trigger.querySelector('.cgpe-trigger-count');
+        if (countEl) {
+          countEl.textContent = `${prompts.length} prompt`;
+        }
+        return prompts;
+      })
+      .catch(() => []);
 
-    setupList({ promptArray, ul, searchInput, chipsRow, metaEl, emptyStateEl });
+    trigger.addEventListener('click', async () => {
+      modalController.open();
+      const prompts = await promptsPromise;
+      modalController.setPrompts(prompts);
+    });
   } finally {
     isInitializing = false;
   }
@@ -164,24 +280,58 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
-function buildSkeleton() {
-  const root = document.createElement('div');
-  root.id = ROOT_ID;
-  root.className = 'cgpe-root';
+function icon(name) {
+  return ICONS[name] || '';
+}
 
-  const titleElement = document.createElement('h2');
-  titleElement.className = 'cgpe-title';
-  titleElement.textContent = 'Hazır Promptlar';
-  root.appendChild(titleElement);
+function buildTrigger() {
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.id = TRIGGER_ID;
+  trigger.className = 'cgpe-trigger';
+  trigger.innerHTML = `
+    <span class="cgpe-trigger-icon">${icon('sparkles')}</span>
+    <span>Hazır Promptlar</span>
+    <span class="cgpe-trigger-count">Yükleniyor...</span>
+  `;
+  return trigger;
+}
+
+function buildModal() {
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.className = 'cgpe-overlay';
+
+  const modal = document.createElement('div');
+  modal.className = 'cgpe-modal';
+
+  const header = document.createElement('div');
+  header.className = 'cgpe-modal-header';
+  header.innerHTML = `
+    <span class="cgpe-modal-title">
+      <span class="cgpe-modal-title-icon">${icon('sparkles')}</span>
+      <span>Hazır Promptlar</span>
+    </span>
+  `;
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'cgpe-close-btn';
+  closeBtn.setAttribute('aria-label', 'Kapat');
+  closeBtn.innerHTML = icon('close');
+  header.appendChild(closeBtn);
 
   const controls = document.createElement('div');
-  controls.className = 'cgpe-controls';
+  controls.className = 'cgpe-modal-controls';
 
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'cgpe-search-wrap';
+  searchWrap.innerHTML = icon('search');
   const searchInput = document.createElement('input');
   searchInput.className = 'cgpe-search';
   searchInput.type = 'text';
   searchInput.placeholder = 'Prompt ara...';
-  controls.appendChild(searchInput);
+  searchWrap.appendChild(searchInput);
+  controls.appendChild(searchWrap);
 
   const chipsRow = document.createElement('div');
   chipsRow.className = 'cgpe-chips';
@@ -190,36 +340,77 @@ function buildSkeleton() {
     chip.type = 'button';
     chip.className = 'cgpe-chip' + (index === 0 ? ' cgpe-chip-active' : '');
     chip.dataset.filterKey = filter.key;
-    chip.textContent = filter.label;
+    chip.innerHTML = `${icon(filter.icon)}<span>${filter.label}</span>`;
     chipsRow.appendChild(chip);
   });
   controls.appendChild(chipsRow);
 
-  root.appendChild(controls);
-
-  const metaRow = document.createElement('div');
-  metaRow.className = 'cgpe-meta';
-  const metaEl = document.createElement('span');
+  const metaEl = document.createElement('div');
+  metaEl.className = 'cgpe-meta';
   metaEl.textContent = 'Yükleniyor...';
-  metaRow.appendChild(metaEl);
-  root.appendChild(metaRow);
-
-  const listWrapper = document.createElement('div');
-  listWrapper.className = 'cgpe-list-wrapper';
 
   const emptyStateEl = document.createElement('div');
   emptyStateEl.className = 'cgpe-empty-state';
   emptyStateEl.textContent = 'Sonuç bulunamadı';
   emptyStateEl.style.display = 'none';
-  listWrapper.appendChild(emptyStateEl);
 
   const ul = document.createElement('ul');
   ul.className = 'cgpe-grid';
-  listWrapper.appendChild(ul);
+  ul.appendChild(emptyStateEl);
 
-  root.appendChild(listWrapper);
+  modal.appendChild(header);
+  modal.appendChild(controls);
+  modal.appendChild(metaEl);
+  modal.appendChild(ul);
+  overlay.appendChild(modal);
 
-  return { root, ul, searchInput, chipsRow, metaEl, emptyStateEl };
+  let listApi = null;
+  let previousOverflow = '';
+
+  function open() {
+    overlay.classList.add('cgpe-open');
+    previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    searchInput.focus();
+  }
+
+  function close() {
+    overlay.classList.remove('cgpe-open');
+    document.body.style.overflow = previousOverflow;
+  }
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      close();
+    }
+  });
+  closeBtn.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('cgpe-open')) {
+      close();
+    }
+  });
+
+  function setPrompts(promptArray) {
+    if (!promptArray.length) {
+      metaEl.textContent =
+        'Promptlar yüklenemedi. Lütfen daha sonra tekrar deneyin.';
+      return;
+    }
+    if (!listApi) {
+      listApi = setupList({
+        promptArray,
+        ul,
+        searchInput,
+        chipsRow,
+        metaEl,
+        emptyStateEl,
+        onSelect: close,
+      });
+    }
+  }
+
+  return { overlay, open, close, setPrompts };
 }
 
 function setupList({
@@ -229,6 +420,7 @@ function setupList({
   chipsRow,
   metaEl,
   emptyStateEl,
+  onSelect,
 }) {
   let activeFilterKey = 'all';
   let searchText = '';
@@ -236,7 +428,7 @@ function setupList({
   let renderedCount = 0;
   let sentinelObserver = null;
 
-  const sentinel = document.createElement('div');
+  const sentinel = document.createElement('li');
   sentinel.className = 'cgpe-sentinel';
 
   function applyFilters() {
@@ -255,7 +447,7 @@ function setupList({
     });
 
     renderedCount = 0;
-    ul.innerHTML = '';
+    ul.querySelectorAll('.cgpe-card').forEach((card) => card.remove());
     metaEl.textContent = `${filtered.length} sonuç`;
     emptyStateEl.style.display = filtered.length ? 'none' : '';
 
@@ -274,7 +466,7 @@ function setupList({
     }
 
     const fragment = document.createDocumentFragment();
-    next.forEach((prompt) => fragment.appendChild(buildCard(prompt)));
+    next.forEach((prompt) => fragment.appendChild(buildCard(prompt, onSelect)));
     renderedCount += next.length;
 
     if (sentinel.parentNode) {
@@ -314,26 +506,43 @@ function setupList({
   searchInput.addEventListener('input', (e) => debouncedSearch(e.target.value));
 
   applyFilters();
+
+  return { applyFilters };
 }
 
-function buildCard(prompt) {
+function buildCard(prompt, onSelect) {
+  const meta = getCategoryMeta(prompt);
+
   const li = document.createElement('li');
-  li.className = 'cgpe-card';
+  li.className = `cgpe-card ${meta.className}`;
   li.title = prompt.prompt;
 
-  const titleEl = document.createElement('span');
+  const iconWrap = document.createElement('div');
+  iconWrap.className = 'cgpe-card-icon';
+  iconWrap.innerHTML = icon(meta.icon);
+  li.appendChild(iconWrap);
+
+  const body = document.createElement('div');
+  body.className = 'cgpe-card-body';
+
+  const titleEl = document.createElement('div');
   titleEl.className = 'cgpe-card-title';
   titleEl.textContent = prompt.act;
-  li.appendChild(titleEl);
+  body.appendChild(titleEl);
 
-  if (prompt.type === 'IMAGE' || prompt.type === 'STRUCTURED') {
-    const badge = document.createElement('span');
-    badge.className = 'cgpe-badge';
-    badge.textContent = prompt.type === 'IMAGE' ? 'Görsel' : 'Yapı';
-    li.appendChild(badge);
-  }
+  const subtitleEl = document.createElement('div');
+  subtitleEl.className = 'cgpe-card-subtitle';
+  subtitleEl.textContent = prompt.prompt.slice(0, 80);
+  body.appendChild(subtitleEl);
 
-  li.addEventListener('click', () => insertPrompt(prompt.prompt));
+  li.appendChild(body);
+
+  li.addEventListener('click', () => {
+    insertPrompt(prompt.prompt);
+    if (onSelect) {
+      onSelect();
+    }
+  });
 
   return li;
 }
