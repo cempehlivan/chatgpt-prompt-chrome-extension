@@ -31,6 +31,9 @@ const LOCALES = {
     edit: 'Düzenle',
     back: 'Geri',
     deleteConfirm: 'Bu promptu silmek istediğinize emin misiniz?',
+    fillVariablesTitle: 'Değişkenleri Doldur',
+    previewLabel: 'Önizleme',
+    useTemplate: 'Kullan',
   },
   en: {
     title: 'Ready Prompts',
@@ -64,6 +67,9 @@ const LOCALES = {
     edit: 'Edit',
     back: 'Back',
     deleteConfirm: 'Are you sure you want to delete this prompt?',
+    fillVariablesTitle: 'Fill in variables',
+    previewLabel: 'Preview',
+    useTemplate: 'Use',
   },
 };
 

@@ -24,6 +24,7 @@ export function setupList({
   emptyStateEl,
   onSelect,
   onEdit,
+  onFill,
 }) {
   let activeFilterKey = 'all';
   let searchText = '';
@@ -70,7 +71,7 @@ export function setupList({
 
     const fragment = document.createDocumentFragment();
     next.forEach((prompt) =>
-      fragment.appendChild(buildCard(prompt, onSelect, onEdit))
+      fragment.appendChild(buildCard(prompt, onSelect, onEdit, onFill))
     );
     renderedCount += next.length;
 

@@ -2,8 +2,9 @@ import { icon } from './icons.js';
 import { getCategoryMeta } from './filters.js';
 import { insertPrompt } from './insert-prompt.js';
 import { STRINGS } from './i18n.js';
+import { hasVariables } from './variables.js';
 
-export function buildCard(prompt, onSelect, onEdit) {
+export function buildCard(prompt, onSelect, onEdit, onFill) {
   const meta = getCategoryMeta(prompt);
 
   const li = document.createElement('li');
@@ -44,6 +45,10 @@ export function buildCard(prompt, onSelect, onEdit) {
   }
 
   li.addEventListener('click', () => {
+    if (hasVariables(prompt.prompt)) {
+      onFill(prompt);
+      return;
+    }
     insertPrompt(prompt.prompt);
     if (onSelect) {
       onSelect();

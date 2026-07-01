@@ -3,6 +3,8 @@ import { STRINGS } from './i18n.js';
 import { FILTERS } from './filters.js';
 import { setupList } from './list.js';
 import { buildPromptForm } from './prompt-form.js';
+import { buildVariableForm } from './variable-form.js';
+import { insertPrompt } from './insert-prompt.js';
 import {
   getCustomPrompts,
   addCustomPrompt,
@@ -94,21 +96,37 @@ export function buildModal() {
   let csvPrompts = [];
   let previousOverflow = '';
 
+  function setView(mode, titleOverride) {
+    modal.classList.remove('cgpe-form-mode', 'cgpe-var-mode');
+
+    if (mode === 'list') {
+      titleIconWrap.innerHTML = icon('sparkles');
+      titleIconWrap.classList.remove('cgpe-modal-title-icon-clickable');
+      titleText.textContent = STRINGS.title;
+      return;
+    }
+
+    titleIconWrap.innerHTML = icon('back');
+    titleIconWrap.classList.add('cgpe-modal-title-icon-clickable');
+    titleText.textContent = titleOverride;
+    modal.classList.add(mode === 'form' ? 'cgpe-form-mode' : 'cgpe-var-mode');
+  }
+
   function showListView() {
-    modal.classList.remove('cgpe-form-mode');
-    titleIconWrap.innerHTML = icon('sparkles');
-    titleIconWrap.classList.remove('cgpe-modal-title-icon-clickable');
-    titleText.textContent = STRINGS.title;
+    setView('list');
   }
 
   function showFormView(existingPrompt) {
     promptForm.reset(existingPrompt);
-    modal.classList.add('cgpe-form-mode');
-    titleIconWrap.innerHTML = icon('back');
-    titleIconWrap.classList.add('cgpe-modal-title-icon-clickable');
-    titleText.textContent = existingPrompt
-      ? STRINGS.formTitleEdit
-      : STRINGS.formTitleAdd;
+    setView(
+      'form',
+      existingPrompt ? STRINGS.formTitleEdit : STRINGS.formTitleAdd
+    );
+  }
+
+  function showVariableView(prompt) {
+    variableForm.load(prompt.prompt);
+    setView('vars', STRINGS.fillVariablesTitle);
   }
 
   const promptForm = buildPromptForm({
@@ -132,11 +150,20 @@ export function buildModal() {
     },
   });
 
+  const variableForm = buildVariableForm({
+    onCancel: () => showListView(),
+    onConfirm: (finalText) => {
+      insertPrompt(finalText);
+      close();
+    },
+  });
+
   modal.appendChild(header);
   modal.appendChild(controls);
   modal.appendChild(metaEl);
   modal.appendChild(ul);
   modal.appendChild(promptForm.element);
+  modal.appendChild(variableForm.element);
   overlay.appendChild(modal);
 
   async function refreshList() {
@@ -160,6 +187,7 @@ export function buildModal() {
         emptyStateEl,
         onSelect: close,
         onEdit: showFormView,
+        onFill: showVariableView,
       });
     } else {
       listApi.updatePrompts(merged);
@@ -187,7 +215,10 @@ export function buildModal() {
   closeBtn.addEventListener('click', close);
   addBtn.addEventListener('click', () => showFormView(null));
   titleIconWrap.addEventListener('click', () => {
-    if (modal.classList.contains('cgpe-form-mode')) {
+    if (
+      modal.classList.contains('cgpe-form-mode') ||
+      modal.classList.contains('cgpe-var-mode')
+    ) {
       showListView();
     }
   });
@@ -195,7 +226,10 @@ export function buildModal() {
     if (e.key !== 'Escape' || !overlay.classList.contains('cgpe-open')) {
       return;
     }
-    if (modal.classList.contains('cgpe-form-mode')) {
+    if (
+      modal.classList.contains('cgpe-form-mode') ||
+      modal.classList.contains('cgpe-var-mode')
+    ) {
       showListView();
     } else {
       close();
