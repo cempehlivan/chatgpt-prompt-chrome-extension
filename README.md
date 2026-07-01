@@ -20,4 +20,6 @@ Then follow these instructions to see your extension:
 4. Select the folder **chatgpt-prompt-extension/build**
 
 
-![ss](https://raw.githubusercontent.com/cempehlivan/chatgpt-prompt-chrome-extension/main/ss.png)
+![ss1](https://raw.githubusercontent.com/cempehlivan/chatgpt-prompt-chrome-extension/main/screenshot_1.png)
+
+![ss2](https://raw.githubusercontent.com/cempehlivan/chatgpt-prompt-chrome-extension/main/screenshot_2.png)
