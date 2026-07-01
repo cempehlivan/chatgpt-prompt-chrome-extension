@@ -27,29 +27,85 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
 };
 
+const LOCALES = {
+  tr: {
+    title: 'Hazır Promptlar',
+    loading: 'Yükleniyor...',
+    promptCount: (n) => `${n} prompt`,
+    searchPlaceholder: 'Prompt ara...',
+    close: 'Kapat',
+    resultCount: (n) => `${n} sonuç`,
+    empty: 'Sonuç bulunamadı',
+    loadError: 'Promptlar yüklenemedi. Lütfen daha sonra tekrar deneyin.',
+    filters: {
+      all: 'Tümü',
+      devs: 'Geliştirici',
+      text: 'Metin',
+      structured: 'Yapılandırılmış',
+      image: 'Görsel',
+    },
+  },
+  en: {
+    title: 'Ready Prompts',
+    loading: 'Loading...',
+    promptCount: (n) => `${n} prompt${n === 1 ? '' : 's'}`,
+    searchPlaceholder: 'Search prompts...',
+    close: 'Close',
+    resultCount: (n) => `${n} result${n === 1 ? '' : 's'}`,
+    empty: 'No results found',
+    loadError: 'Prompts could not be loaded. Please try again later.',
+    filters: {
+      all: 'All',
+      devs: 'Developer',
+      text: 'Text',
+      structured: 'Structured',
+      image: 'Image',
+    },
+  },
+};
+
+// Sadece Türkçe ve İngilizce destekleniyor: tarayıcı dili tr* ile
+// başlıyorsa Türkçe, aksi halde (desteklenmeyen her dil dahil) İngilizce.
+function detectLocale() {
+  const langs =
+    navigator.languages && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language];
+
+  for (const lang of langs) {
+    if (lang && lang.toLowerCase().startsWith('tr')) {
+      return 'tr';
+    }
+  }
+
+  return 'en';
+}
+
+const STRINGS = LOCALES[detectLocale()] || LOCALES.en;
+
 const FILTERS = [
-  { key: 'all', label: 'Tümü', icon: 'grid', test: () => true },
+  { key: 'all', label: STRINGS.filters.all, icon: 'grid', test: () => true },
   {
     key: 'devs',
-    label: 'Geliştirici',
+    label: STRINGS.filters.devs,
     icon: 'code',
     test: (p) => p.for_devs === 'TRUE',
   },
   {
     key: 'text',
-    label: 'Metin',
+    label: STRINGS.filters.text,
     icon: 'message',
     test: (p) => p.type === 'TEXT',
   },
   {
     key: 'structured',
-    label: 'Yapılandırılmış',
+    label: STRINGS.filters.structured,
     icon: 'braces',
     test: (p) => p.type === 'STRUCTURED',
   },
   {
     key: 'image',
-    label: 'Görsel',
+    label: STRINGS.filters.image,
     icon: 'photo',
     test: (p) => p.type === 'IMAGE',
   },
@@ -253,7 +309,7 @@ async function init() {
       .then((prompts) => {
         const countEl = trigger.querySelector('.cgpe-trigger-count');
         if (countEl) {
-          countEl.textContent = `${prompts.length} prompt`;
+          countEl.textContent = STRINGS.promptCount(prompts.length);
         }
         return prompts;
       })
@@ -290,8 +346,8 @@ function buildTrigger() {
   trigger.className = 'cgpe-trigger';
   trigger.innerHTML = `
     <span class="cgpe-trigger-icon">${icon('sparkles')}</span>
-    <span>Hazır Promptlar</span>
-    <span class="cgpe-trigger-count">Yükleniyor...</span>
+    <span>${STRINGS.title}</span>
+    <span class="cgpe-trigger-count">${STRINGS.loading}</span>
   `;
   return trigger;
 }
@@ -399,13 +455,13 @@ function buildModal() {
   header.innerHTML = `
     <span class="cgpe-modal-title">
       <span class="cgpe-modal-title-icon">${icon('sparkles')}</span>
-      <span>Hazır Promptlar</span>
+      <span>${STRINGS.title}</span>
     </span>
   `;
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'cgpe-close-btn';
-  closeBtn.setAttribute('aria-label', 'Kapat');
+  closeBtn.setAttribute('aria-label', STRINGS.close);
   closeBtn.innerHTML = icon('close');
   header.appendChild(closeBtn);
 
@@ -418,7 +474,7 @@ function buildModal() {
   const searchInput = document.createElement('input');
   searchInput.className = 'cgpe-search';
   searchInput.type = 'text';
-  searchInput.placeholder = 'Prompt ara...';
+  searchInput.placeholder = STRINGS.searchPlaceholder;
   searchWrap.appendChild(searchInput);
   controls.appendChild(searchWrap);
 
@@ -436,11 +492,11 @@ function buildModal() {
 
   const metaEl = document.createElement('div');
   metaEl.className = 'cgpe-meta';
-  metaEl.textContent = 'Yükleniyor...';
+  metaEl.textContent = STRINGS.loading;
 
   const emptyStateEl = document.createElement('div');
   emptyStateEl.className = 'cgpe-empty-state';
-  emptyStateEl.textContent = 'Sonuç bulunamadı';
+  emptyStateEl.textContent = STRINGS.empty;
   emptyStateEl.style.display = 'none';
 
   const ul = document.createElement('ul');
@@ -482,8 +538,7 @@ function buildModal() {
 
   function setPrompts(promptArray) {
     if (!promptArray.length) {
-      metaEl.textContent =
-        'Promptlar yüklenemedi. Lütfen daha sonra tekrar deneyin.';
+      metaEl.textContent = STRINGS.loadError;
       return;
     }
     if (!listApi) {
@@ -537,7 +592,7 @@ function setupList({
 
     renderedCount = 0;
     ul.querySelectorAll('.cgpe-card').forEach((card) => card.remove());
-    metaEl.textContent = `${filtered.length} sonuç`;
+    metaEl.textContent = STRINGS.resultCount(filtered.length);
     emptyStateEl.style.display = filtered.length ? 'none' : '';
 
     renderNextBatch();
