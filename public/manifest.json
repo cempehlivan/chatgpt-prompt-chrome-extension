@@ -15,16 +15,12 @@
   "action": {
     "default_title": "ChatGPT Prompts"
   },
+  "permissions": ["storage"],
   "content_scripts": [
     {
-      "matches": [
-        "https://chatgpt.com/*",
-        "https://www.chatgpt.com/*"
-      ],
+      "matches": ["https://chatgpt.com/*", "https://www.chatgpt.com/*"],
       "run_at": "document_idle",
-      "js": [
-        "contentScript.js"
-      ]
+      "js": ["contentScript.js"]
     }
   ]
 }

@@ -1,19 +1,96 @@
 'use strict';
 
+const CSV_URL =
+  'https://raw.githubusercontent.com/f/prompts.chat/refs/heads/main/prompts.csv';
+const CACHE_KEY = 'cgpePromptsCache';
+const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const ROOT_ID = 'cgpe-prompts-root';
+const STYLE_ID = 'cgpe-prompts-style';
+const BATCH_SIZE = 60;
+const SEARCH_DEBOUNCE_MS = 200;
+
+const FILTERS = [
+  { key: 'all', label: 'Tümü', test: () => true },
+  { key: 'devs', label: 'Geliştirici', test: (p) => p.for_devs === 'TRUE' },
+  { key: 'text', label: 'Metin', test: (p) => p.type === 'TEXT' },
+  {
+    key: 'structured',
+    label: 'Yapılandırılmış',
+    test: (p) => p.type === 'STRUCTURED',
+  },
+  { key: 'image', label: 'Görsel', test: (p) => p.type === 'IMAGE' },
+];
+
+const STYLE_TEXT = `
+.cgpe-root { max-width: 768px; margin: 24px auto 0; padding: 0 4px; color: var(--cgpe-text); }
+html:not(.dark) .cgpe-root {
+  --cgpe-text: #111827; --cgpe-subtext: #6b7280; --cgpe-card-bg: #ffffff;
+  --cgpe-card-hover: #f3f4f6; --cgpe-border: #e5e7eb; --cgpe-chip-bg: #f3f4f6;
+  --cgpe-chip-active-bg: #111827; --cgpe-chip-active-text: #ffffff; --cgpe-input-bg: #ffffff;
+}
+html.dark .cgpe-root {
+  --cgpe-text: #ececec; --cgpe-subtext: #9b9b9b; --cgpe-card-bg: #2f2f2f;
+  --cgpe-card-hover: #3a3a3a; --cgpe-border: #3f3f3f; --cgpe-chip-bg: #3a3a3a;
+  --cgpe-chip-active-bg: #ececec; --cgpe-chip-active-text: #111111; --cgpe-input-bg: #2f2f2f;
+}
+.cgpe-title { font-size: 1.05rem; font-weight: 600; margin: 0 0 12px; }
+.cgpe-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.cgpe-search {
+  width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--cgpe-border);
+  background: var(--cgpe-input-bg); color: var(--cgpe-text); font-size: 0.9rem; outline: none;
+  box-sizing: border-box;
+}
+.cgpe-search:focus { border-color: var(--cgpe-chip-active-bg); }
+.cgpe-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cgpe-chip {
+  border: 1px solid var(--cgpe-border); background: var(--cgpe-chip-bg); color: var(--cgpe-text);
+  border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cgpe-chip:hover { filter: brightness(1.08); }
+.cgpe-chip-active { background: var(--cgpe-chip-active-bg); color: var(--cgpe-chip-active-text); border-color: transparent; }
+.cgpe-meta { font-size: 0.78rem; color: var(--cgpe-subtext); margin-bottom: 8px; min-height: 16px; }
+.cgpe-list-wrapper { position: relative; height: 520px; }
+.cgpe-empty-state { padding: 32px 0; text-align: center; color: var(--cgpe-subtext); font-size: 0.85rem; }
+.cgpe-grid {
+  list-style: none; margin: 0; padding: 0 4px 12px 0; height: 100%; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+  align-content: start;
+}
+.cgpe-card {
+  position: relative; background: var(--cgpe-card-bg); border: 1px solid var(--cgpe-border);
+  border-radius: 10px; padding: 12px 14px; min-height: 64px; display: flex; align-items: center;
+  cursor: pointer; transition: background 0.15s ease, transform 0.1s ease;
+}
+.cgpe-card:hover { background: var(--cgpe-card-hover); transform: translateY(-1px); }
+.cgpe-card-title {
+  font-size: 0.85rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.cgpe-badge {
+  position: absolute; top: 8px; right: 8px; font-size: 0.65rem; padding: 2px 6px;
+  border-radius: 999px; background: var(--cgpe-chip-bg); color: var(--cgpe-subtext);
+}
+.cgpe-sentinel { height: 1px; }
+`;
+
+let isInitializing = false;
+let pendingTimer = null;
+
 document.onreadystatechange = () => {
   if (document.readyState === 'complete') {
-    setTimeout(creator, 1000);
+    scheduleInit(1000);
   }
 };
 
 let currentTitle = document.title;
 
-const observer = new MutationObserver((mutations) => {
+const observer = new MutationObserver(() => {
   if (document.title !== currentTitle) {
     currentTitle = document.title;
 
     if (document.location.pathname == '/chat') {
-      setTimeout(creator, 500);
+      scheduleInit(500);
     }
   }
 });
@@ -25,123 +102,335 @@ window.addEventListener('beforeunload', function (event) {
   observer.disconnect();
 });
 
-const creator = () => {
-  var divContainer = document.createElement('div');
-  divContainer.setAttribute(
-    'class',
-    'flex flex-1 flex-grow-0 ml-auto mr-auto flex-col pt-5 md:max-w-2xl lg:max-w-3xl'
-  );
+function scheduleInit(delay) {
+  if (pendingTimer) {
+    clearTimeout(pendingTimer);
+  }
+  pendingTimer = setTimeout(() => {
+    pendingTimer = null;
+    init();
+  }, delay);
+}
 
-  const titleElement = document.createElement('h2');
-  titleElement.setAttribute('class', 'mb-3');
-  titleElement.innerHTML = 'Prompts';
-  divContainer.appendChild(titleElement);
+async function init() {
+  if (isInitializing || document.getElementById(ROOT_ID)) {
+    return;
+  }
 
-  const ulElement = document.createElement('ul');
+  const h1Element = document.querySelector('h1');
+  if (!h1Element) {
+    return;
+  }
 
-  ulElement.setAttribute('class', 'flex gap-3.5 overflow-y-auto');
-  ulElement.setAttribute(
-    'style',
-    'flex-wrap: wrap;flex: 1 0 auto; height: 500px; align-items: flex-start;'
-  );
+  isInitializing = true;
 
-  const searchInputElement = document.createElement('input');
-  searchInputElement.setAttribute(
-    'class',
-    'dark:bg-gray-700 dark:text-white mb-6 md:pl-4 md:py-3 relative resize-none rounded-md shadow-[0_0_10px_rgba(0,0,0,0.10)] w-full'
-  );
-  searchInputElement.setAttribute('placeholder', 'Search prompts..');
-  searchInputElement.onkeyup = (e) => {
-    const searchText = e.target.value;
-    ulElement.childNodes.forEach(function (itemLi) {
-      if (itemLi.innerText.search(new RegExp(searchText, 'i')) < 0) {
-        itemLi.style.visibility = 'hidden';
-        itemLi.style.display = 'none';
-      } else {
-        itemLi.style.visibility = '';
-        itemLi.style.display = '';
-      }
-    });
-  };
+  try {
+    injectStyles();
 
-  divContainer.appendChild(searchInputElement);
+    h1Element.classList.add('mt-6');
+    h1Element.classList.remove('flex-grow');
 
-  const csvText = httpGet(
-    `https://raw.githubusercontent.com/f/prompts.chat/refs/heads/main/prompts.csv?v=${Date.now()}`
-  );
+    const h1ElementParent = h1Element.parentNode;
+    const { root, ul, searchInput, chipsRow, metaEl, emptyStateEl } =
+      buildSkeleton();
+    h1ElementParent.appendChild(root);
 
-  const promptArray = csvToArray(csvText);
-
-  if (
-    promptArray != undefined &&
-    promptArray != null &&
-    promptArray.length > 0
-  ) {
-    const textareaElement = document.querySelector('textarea[name="prompt-textarea"]');
-
-    for (let index = 0; index < promptArray.length; index++) {
-      const prompt = promptArray[index];
-
-      if (
-        prompt.prompt == undefined ||
-        prompt.prompt == null ||
-        prompt.prompt === ''
-      ) {
-        continue;
-      }
-
-      const liElement = document.createElement('li');
-
-      liElement.setAttribute(
-        'class',
-        'flex-1 bg-gray-50 dark:bg-white/5 p-3 rounded-md hover:bg-gray-200 dark:hover:bg-gray-900 flex items-center justify-center text-center cursor-pointer'
-      );
-      liElement.setAttribute('style', 'min-width: 30%;');
-
-      liElement.innerHTML = prompt.act;
-
-      liElement.onclick = () => {
-        textareaElement.value = prompt.prompt;
-        textareaElement.dispatchEvent(new Event('input', { bubbles: true }));
-      };
-
-      ulElement.appendChild(liElement);
+    let promptArray = [];
+    try {
+      promptArray = await getPrompts();
+    } catch (err) {
+      promptArray = [];
     }
 
-    divContainer.appendChild(ulElement);
+    if (!promptArray.length) {
+      metaEl.textContent =
+        'Promptlar yüklenemedi. Lütfen daha sonra tekrar deneyin.';
+      return;
+    }
+
+    setupList({ promptArray, ul, searchInput, chipsRow, metaEl, emptyStateEl });
+  } finally {
+    isInitializing = false;
+  }
+}
+
+function injectStyles() {
+  if (document.getElementById(STYLE_ID)) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLE_TEXT;
+  document.head.appendChild(style);
+}
+
+function buildSkeleton() {
+  const root = document.createElement('div');
+  root.id = ROOT_ID;
+  root.className = 'cgpe-root';
+
+  const titleElement = document.createElement('h2');
+  titleElement.className = 'cgpe-title';
+  titleElement.textContent = 'Hazır Promptlar';
+  root.appendChild(titleElement);
+
+  const controls = document.createElement('div');
+  controls.className = 'cgpe-controls';
+
+  const searchInput = document.createElement('input');
+  searchInput.className = 'cgpe-search';
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Prompt ara...';
+  controls.appendChild(searchInput);
+
+  const chipsRow = document.createElement('div');
+  chipsRow.className = 'cgpe-chips';
+  FILTERS.forEach((filter, index) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'cgpe-chip' + (index === 0 ? ' cgpe-chip-active' : '');
+    chip.dataset.filterKey = filter.key;
+    chip.textContent = filter.label;
+    chipsRow.appendChild(chip);
+  });
+  controls.appendChild(chipsRow);
+
+  root.appendChild(controls);
+
+  const metaRow = document.createElement('div');
+  metaRow.className = 'cgpe-meta';
+  const metaEl = document.createElement('span');
+  metaEl.textContent = 'Yükleniyor...';
+  metaRow.appendChild(metaEl);
+  root.appendChild(metaRow);
+
+  const listWrapper = document.createElement('div');
+  listWrapper.className = 'cgpe-list-wrapper';
+
+  const emptyStateEl = document.createElement('div');
+  emptyStateEl.className = 'cgpe-empty-state';
+  emptyStateEl.textContent = 'Sonuç bulunamadı';
+  emptyStateEl.style.display = 'none';
+  listWrapper.appendChild(emptyStateEl);
+
+  const ul = document.createElement('ul');
+  ul.className = 'cgpe-grid';
+  listWrapper.appendChild(ul);
+
+  root.appendChild(listWrapper);
+
+  return { root, ul, searchInput, chipsRow, metaEl, emptyStateEl };
+}
+
+function setupList({
+  promptArray,
+  ul,
+  searchInput,
+  chipsRow,
+  metaEl,
+  emptyStateEl,
+}) {
+  let activeFilterKey = 'all';
+  let searchText = '';
+  let filtered = promptArray;
+  let renderedCount = 0;
+  let sentinelObserver = null;
+
+  const sentinel = document.createElement('div');
+  sentinel.className = 'cgpe-sentinel';
+
+  function applyFilters() {
+    const activeFilter =
+      FILTERS.find((f) => f.key === activeFilterKey) || FILTERS[0];
+    const term = searchText.trim().toLocaleLowerCase();
+
+    filtered = promptArray.filter((p) => {
+      if (!activeFilter.test(p)) {
+        return false;
+      }
+      if (!term) {
+        return true;
+      }
+      return p.act.toLocaleLowerCase().includes(term);
+    });
+
+    renderedCount = 0;
+    ul.innerHTML = '';
+    metaEl.textContent = `${filtered.length} sonuç`;
+    emptyStateEl.style.display = filtered.length ? 'none' : '';
+
+    renderNextBatch();
   }
 
-  var h1Element = document.querySelector('h1');
-  h1Element.classList.add('mt-6');
-  h1Element.classList.remove('flex-grow');
+  function renderNextBatch() {
+    if (sentinelObserver) {
+      sentinelObserver.disconnect();
+      sentinelObserver = null;
+    }
 
-  var h1ElementParent = h1Element.parentNode;
+    const next = filtered.slice(renderedCount, renderedCount + BATCH_SIZE);
+    if (next.length === 0) {
+      return;
+    }
 
-  if (h1ElementParent.lastChild.nodeName != 'H1') {
-    h1ElementParent.lastChild.remove();
+    const fragment = document.createDocumentFragment();
+    next.forEach((prompt) => fragment.appendChild(buildCard(prompt)));
+    renderedCount += next.length;
+
+    if (sentinel.parentNode) {
+      sentinel.remove();
+    }
+    ul.appendChild(fragment);
+
+    if (renderedCount < filtered.length) {
+      ul.appendChild(sentinel);
+      sentinelObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            renderNextBatch();
+          }
+        },
+        { root: ul, rootMargin: '200px' }
+      );
+      sentinelObserver.observe(sentinel);
+    }
   }
-  h1ElementParent.appendChild(divContainer);
-};
 
-// const csvToArray = (str, delimiter = ',') => {
-//   const headers = str
-//     .slice(0, str.indexOf('\n'))
-//     .split(delimiter)
-//     .map((s) => s.replace(/(^"|"$)/g, ''));
+  chipsRow.querySelectorAll('.cgpe-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeFilterKey = chip.dataset.filterKey;
+      chipsRow.querySelectorAll('.cgpe-chip').forEach((c) => {
+        c.classList.toggle('cgpe-chip-active', c === chip);
+      });
+      applyFilters();
+    });
+  });
 
-//   const rows = str.slice(str.indexOf('\n') + 1).split('\n');
+  const debouncedSearch = debounce((value) => {
+    searchText = value;
+    applyFilters();
+  }, SEARCH_DEBOUNCE_MS);
 
-//   const arr = rows.map(function (row) {
-//     const values = row.replace(/(^"|"$)/g, '').split(delimiter);
-//     const el = headers.reduce(function (object, header, index) {
-//       object[header] = values[index];
-//       return object;
-//     }, {});
-//     return el;
-//   });
+  searchInput.addEventListener('input', (e) => debouncedSearch(e.target.value));
 
-//   return arr;
-// };
+  applyFilters();
+}
+
+function buildCard(prompt) {
+  const li = document.createElement('li');
+  li.className = 'cgpe-card';
+  li.title = prompt.prompt;
+
+  const titleEl = document.createElement('span');
+  titleEl.className = 'cgpe-card-title';
+  titleEl.textContent = prompt.act;
+  li.appendChild(titleEl);
+
+  if (prompt.type === 'IMAGE' || prompt.type === 'STRUCTURED') {
+    const badge = document.createElement('span');
+    badge.className = 'cgpe-badge';
+    badge.textContent = prompt.type === 'IMAGE' ? 'Görsel' : 'Yapı';
+    li.appendChild(badge);
+  }
+
+  li.addEventListener('click', () => insertPrompt(prompt.prompt));
+
+  return li;
+}
+
+function insertPrompt(promptText) {
+  // ChatGPT'nin güncel giriş kutusu bir contenteditable div'dir; eski
+  // textarea[name="prompt-textarea"] DOM'da hâlâ bulunabiliyor ama
+  // gizli (display:none) olabiliyor, bu yüzden önce görünürlüğü kontrol edilir.
+  const editable = document.querySelector(
+    '#prompt-textarea[contenteditable="true"]'
+  );
+  if (editable && editable.offsetParent !== null) {
+    editable.focus();
+    document.execCommand('selectAll', false, undefined);
+    document.execCommand('insertText', false, promptText);
+    return;
+  }
+
+  const textarea = document.querySelector('textarea[name="prompt-textarea"]');
+  if (textarea && textarea.offsetParent !== null) {
+    textarea.value = promptText;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.focus();
+  }
+}
+
+function debounce(fn, delay) {
+  let timer = null;
+  return (...args) => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+async function getPrompts() {
+  const cached = await storageGet(CACHE_KEY);
+  const cache = cached[CACHE_KEY];
+  const isFresh = cache && Date.now() - cache.timestamp < CACHE_TTL_MS;
+
+  if (isFresh && Array.isArray(cache.prompts) && cache.prompts.length) {
+    return cache.prompts;
+  }
+
+  try {
+    const response = await fetch(`${CSV_URL}?v=${Date.now()}`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const csvText = await response.text();
+    const prompts = csvToArray(csvText).filter((p) => p.act && p.prompt);
+
+    if (prompts.length) {
+      storageSet({ [CACHE_KEY]: { timestamp: Date.now(), prompts } });
+      return prompts;
+    }
+  } catch (err) {
+    if (cache && Array.isArray(cache.prompts) && cache.prompts.length) {
+      return cache.prompts;
+    }
+    throw err;
+  }
+
+  return cache && Array.isArray(cache.prompts) ? cache.prompts : [];
+}
+
+function storageGet(key) {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get(key, (result) => {
+        if (chrome.runtime.lastError) {
+          resolve({});
+          return;
+        }
+        resolve(result || {});
+      });
+    } catch (err) {
+      resolve({});
+    }
+  });
+}
+
+function storageSet(items) {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.set(items, () => {
+        resolve(!chrome.runtime.lastError);
+      });
+    } catch (err) {
+      resolve(false);
+    }
+  });
+}
 
 const csvToArray = (str, delimiter = ',') => {
   if (!str) return [];
@@ -220,11 +509,4 @@ const csvToArray = (str, delimiter = ',') => {
       return object;
     }, {});
   });
-};
-
-const httpGet = (theUrl) => {
-  var xmlHttp = new XMLHttpRequest();
-  xmlHttp.open('GET', theUrl, false);
-  xmlHttp.send(null);
-  return xmlHttp.responseText;
 };
