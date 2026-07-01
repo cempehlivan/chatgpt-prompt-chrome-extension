@@ -11,6 +11,7 @@ const common = {
   output: {
     path: PATHS.build,
     filename: '[name].js',
+    clean: true,
   },
   stats: {
     all: false,

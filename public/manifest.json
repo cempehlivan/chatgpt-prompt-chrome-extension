@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT Prompts",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "ChatGPT Prompts",
   "icons": {
     "16": "icons/icon_16.png",
@@ -9,13 +9,11 @@
     "48": "icons/icon_48.png",
     "128": "icons/icon_128.png"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
   "action": {
     "default_title": "ChatGPT Prompts"
   },
   "permissions": ["storage"],
+  "host_permissions": ["https://raw.githubusercontent.com/*"],
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*", "https://www.chatgpt.com/*"],
