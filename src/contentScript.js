@@ -27,7 +27,10 @@ window.addEventListener('beforeunload', function (event) {
 
 const creator = () => {
   var divContainer = document.createElement('div');
-  divContainer.setAttribute('class', 'flex flex-1 flex-grow-0 ml-auto mr-auto flex-col pt-5 md:max-w-2xl lg:max-w-3xl');
+  divContainer.setAttribute(
+    'class',
+    'flex flex-1 flex-grow-0 ml-auto mr-auto flex-col pt-5 md:max-w-2xl lg:max-w-3xl'
+  );
 
   const titleElement = document.createElement('h2');
   titleElement.setAttribute('class', 'mb-3');
@@ -64,17 +67,17 @@ const creator = () => {
   divContainer.appendChild(searchInputElement);
 
   const csvText = httpGet(
-    `https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv?v=${Date.now()}`
+    `https://raw.githubusercontent.com/f/prompts.chat/refs/heads/main/prompts.csv?v=${Date.now()}`
   );
 
-  const promptArray = csvToArray(csvText, '","');
+  const promptArray = csvToArray(csvText);
 
   if (
     promptArray != undefined &&
     promptArray != null &&
     promptArray.length > 0
   ) {
-    const textareaElement = document.querySelector('textarea[data-id="root"]');
+    const textareaElement = document.querySelector('textarea[name="prompt-textarea"]');
 
     for (let index = 0; index < promptArray.length; index++) {
       const prompt = promptArray[index];
@@ -109,8 +112,8 @@ const creator = () => {
   }
 
   var h1Element = document.querySelector('h1');
-  h1Element.classList.add("mt-6");
-  h1Element.classList.remove("flex-grow");
+  h1Element.classList.add('mt-6');
+  h1Element.classList.remove('flex-grow');
 
   var h1ElementParent = h1Element.parentNode;
 
@@ -120,24 +123,103 @@ const creator = () => {
   h1ElementParent.appendChild(divContainer);
 };
 
+// const csvToArray = (str, delimiter = ',') => {
+//   const headers = str
+//     .slice(0, str.indexOf('\n'))
+//     .split(delimiter)
+//     .map((s) => s.replace(/(^"|"$)/g, ''));
+
+//   const rows = str.slice(str.indexOf('\n') + 1).split('\n');
+
+//   const arr = rows.map(function (row) {
+//     const values = row.replace(/(^"|"$)/g, '').split(delimiter);
+//     const el = headers.reduce(function (object, header, index) {
+//       object[header] = values[index];
+//       return object;
+//     }, {});
+//     return el;
+//   });
+
+//   return arr;
+// };
+
 const csvToArray = (str, delimiter = ',') => {
-  const headers = str
-    .slice(0, str.indexOf('\n'))
-    .split(delimiter)
-    .map((s) => s.replace(/(^"|"$)/g, ''));
+  if (!str) return [];
 
-  const rows = str.slice(str.indexOf('\n') + 1).split('\n');
+  // BOM temizliği
+  if (str.charCodeAt(0) === 0xfeff) {
+    str = str.slice(1);
+  }
 
-  const arr = rows.map(function (row) {
-    const values = row.replace(/(^"|"$)/g, '').split(delimiter);
-    const el = headers.reduce(function (object, header, index) {
-      object[header] = values[index];
+  const rows = [];
+  let row = [];
+  let value = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const nextChar = str[i + 1];
+
+    // Çift tırnak kontrolü
+    if (char === '"') {
+      // CSV içinde çift tırnak escape edilmişse: ""
+      if (inQuotes && nextChar === '"') {
+        value += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+
+      continue;
+    }
+
+    // Virgül: sadece tırnak dışında ise kolon ayırıcı
+    if (char === delimiter && !inQuotes) {
+      row.push(value);
+      value = '';
+      continue;
+    }
+
+    // Satır sonu: sadece tırnak dışında ise satır ayırıcı
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+
+      row.push(value);
+
+      // Boş satırları alma
+      if (row.some((x) => x !== '')) {
+        rows.push(row);
+      }
+
+      row = [];
+      value = '';
+      continue;
+    }
+
+    value += char;
+  }
+
+  // Son satır
+  if (value.length > 0 || row.length > 0) {
+    row.push(value);
+
+    if (row.some((x) => x !== '')) {
+      rows.push(row);
+    }
+  }
+
+  const headers = rows.shift();
+
+  if (!headers) return [];
+
+  return rows.map((row) => {
+    return headers.reduce((object, header, index) => {
+      object[header] = row[index] ?? '';
       return object;
     }, {});
-    return el;
   });
-
-  return arr;
 };
 
 const httpGet = (theUrl) => {
