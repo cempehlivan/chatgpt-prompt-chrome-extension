@@ -35,8 +35,6 @@ const LOCALES = {
   },
 };
 
-// Sadece Türkçe ve İngilizce destekleniyor: tarayıcı dili tr* ile
-// başlıyorsa Türkçe, aksi halde (desteklenmeyen her dil dahil) İngilizce.
 function detectLocale() {
   const langs =
     navigator.languages && navigator.languages.length

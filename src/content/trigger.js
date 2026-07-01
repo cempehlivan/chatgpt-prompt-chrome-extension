@@ -16,11 +16,6 @@ export function buildTrigger() {
   return trigger;
 }
 
-// ChatGPT'nin boş sohbet ekranında composer'ın altında "Görsel oluştur" /
-// "Yaz veya düzenle" gibi öneri pilleri bulunuyor. Tetikleyici butonu, o
-// satırın 4. elemanı gibi görünecek şekilde oraya yerleştiriyoruz. Bu satırı
-// metin/dil eşleşmesi yerine yapısal olarak (ikonlu kısa metinli, 2+ kardeşi
-// olan buton) buluyoruz ki ChatGPT arayüz metnini değiştirse de çalışsın.
 function findSuggestionRow() {
   const scope =
     document.getElementById('main') ||
@@ -76,9 +71,6 @@ function mountTriggerInRow(trigger, suggestion) {
   suggestion.row.appendChild(wrapper);
 }
 
-// Sayfa ilk açıldığında öneri pilleri satırı henüz DOM'a gelmemiş olabiliyor
-// (animasyonla sonradan beliriyor). Bu yüzden bulunamazsa geçici olarak h1'in
-// yanına yerleştirip, satır belirene kadar birkaç kez yeniden denenir.
 function retryPlaceInRow(trigger, attemptsLeft) {
   if (attemptsLeft <= 0 || !trigger.isConnected) {
     return;

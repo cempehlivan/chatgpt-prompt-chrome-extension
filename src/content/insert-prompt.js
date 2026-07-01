@@ -1,7 +1,4 @@
 export function insertPrompt(promptText) {
-  // ChatGPT'nin güncel giriş kutusu bir contenteditable div'dir; eski
-  // textarea[name="prompt-textarea"] DOM'da hâlâ bulunabiliyor ama
-  // gizli (display:none) olabiliyor, bu yüzden önce görünürlüğü kontrol edilir.
   const editable = document.querySelector(
     '#prompt-textarea[contenteditable="true"]'
   );

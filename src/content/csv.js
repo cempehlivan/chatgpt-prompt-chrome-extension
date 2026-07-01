@@ -1,7 +1,6 @@
 export const csvToArray = (str, delimiter = ',') => {
   if (!str) return [];
 
-  // BOM temizliği
   if (str.charCodeAt(0) === 0xfeff) {
     str = str.slice(1);
   }
@@ -15,9 +14,7 @@ export const csvToArray = (str, delimiter = ',') => {
     const char = str[i];
     const nextChar = str[i + 1];
 
-    // Çift tırnak kontrolü
     if (char === '"') {
-      // CSV içinde çift tırnak escape edilmişse: ""
       if (inQuotes && nextChar === '"') {
         value += '"';
         i++;
@@ -28,14 +25,12 @@ export const csvToArray = (str, delimiter = ',') => {
       continue;
     }
 
-    // Virgül: sadece tırnak dışında ise kolon ayırıcı
     if (char === delimiter && !inQuotes) {
       row.push(value);
       value = '';
       continue;
     }
 
-    // Satır sonu: sadece tırnak dışında ise satır ayırıcı
     if ((char === '\n' || char === '\r') && !inQuotes) {
       if (char === '\r' && nextChar === '\n') {
         i++;
@@ -43,7 +38,6 @@ export const csvToArray = (str, delimiter = ',') => {
 
       row.push(value);
 
-      // Boş satırları alma
       if (row.some((x) => x !== '')) {
         rows.push(row);
       }
@@ -56,7 +50,6 @@ export const csvToArray = (str, delimiter = ',') => {
     value += char;
   }
 
-  // Son satır
   if (value.length > 0 || row.length > 0) {
     row.push(value);
 
