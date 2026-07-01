@@ -23,6 +23,7 @@ export function setupList({
   metaEl,
   emptyStateEl,
   onSelect,
+  onEdit,
 }) {
   let activeFilterKey = 'all';
   let searchText = '';
@@ -68,7 +69,9 @@ export function setupList({
     }
 
     const fragment = document.createDocumentFragment();
-    next.forEach((prompt) => fragment.appendChild(buildCard(prompt, onSelect)));
+    next.forEach((prompt) =>
+      fragment.appendChild(buildCard(prompt, onSelect, onEdit))
+    );
     renderedCount += next.length;
 
     if (sentinel.parentNode) {
@@ -109,5 +112,10 @@ export function setupList({
 
   applyFilters();
 
-  return { applyFilters };
+  function updatePrompts(newPromptArray) {
+    promptArray = newPromptArray;
+    applyFilters();
+  }
+
+  return { applyFilters, updatePrompts };
 }

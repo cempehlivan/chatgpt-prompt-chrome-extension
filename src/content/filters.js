@@ -26,6 +26,12 @@ export const FILTERS = [
     icon: 'photo',
     test: (p) => p.type === 'IMAGE',
   },
+  {
+    key: 'custom',
+    label: STRINGS.filters.custom,
+    icon: 'user',
+    test: (p) => p.custom === true,
+  },
 ];
 
 export function getCategoryMeta(prompt) {

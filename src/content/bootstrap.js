@@ -3,6 +3,7 @@ import { injectStyles } from './styles.js';
 import { buildTrigger, placeTrigger, TRIGGER_ID } from './trigger.js';
 import { buildModal } from './modal.js';
 import { getPrompts } from './prompts-data.js';
+import { getCustomPrompts } from './custom-prompts.js';
 
 let isInitializing = false;
 let pendingTimer = null;
@@ -62,10 +63,13 @@ async function init() {
     }
 
     promptsPromise = getPrompts()
-      .then((prompts) => {
+      .then(async (prompts) => {
+        const customPrompts = await getCustomPrompts();
         const countEl = trigger.querySelector('.cgpe-trigger-count');
         if (countEl) {
-          countEl.textContent = STRINGS.promptCount(prompts.length);
+          countEl.textContent = STRINGS.promptCount(
+            prompts.length + customPrompts.length
+          );
         }
         return prompts;
       })

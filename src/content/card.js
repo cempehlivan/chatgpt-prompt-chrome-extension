@@ -1,8 +1,9 @@
 import { icon } from './icons.js';
 import { getCategoryMeta } from './filters.js';
 import { insertPrompt } from './insert-prompt.js';
+import { STRINGS } from './i18n.js';
 
-export function buildCard(prompt, onSelect) {
+export function buildCard(prompt, onSelect, onEdit) {
   const meta = getCategoryMeta(prompt);
 
   const li = document.createElement('li');
@@ -28,6 +29,19 @@ export function buildCard(prompt, onSelect) {
   body.appendChild(subtitleEl);
 
   li.appendChild(body);
+
+  if (prompt.custom) {
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'cgpe-card-edit-btn';
+    editBtn.setAttribute('aria-label', STRINGS.edit);
+    editBtn.innerHTML = icon('edit');
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onEdit(prompt);
+    });
+    li.appendChild(editBtn);
+  }
 
   li.addEventListener('click', () => {
     insertPrompt(prompt.prompt);

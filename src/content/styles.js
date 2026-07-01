@@ -23,14 +23,14 @@ html:not(.dark) .cgpe-trigger, html:not(.dark) .cgpe-overlay {
   --cgpe-card-hover: #f6f6f7; --cgpe-border: #e5e7eb; --cgpe-border-strong: #d1d5db;
   --cgpe-chip-bg: #f3f4f6; --cgpe-chip-active-bg: #111827; --cgpe-chip-active-text: #ffffff;
   --cgpe-input-bg: #ffffff; --cgpe-overlay-bg: rgba(15, 15, 15, 0.45); --cgpe-accent-bg: #EEEDFE;
-  --cgpe-accent-fg: #3C3489;
+  --cgpe-accent-fg: #3C3489; --cgpe-danger-text: #A32D2D; --cgpe-danger-border: #F09595;
 }
 html.dark .cgpe-trigger, html.dark .cgpe-overlay {
   --cgpe-text: #ececec; --cgpe-subtext: #9b9b9b; --cgpe-card-bg: #2a2a2a;
   --cgpe-card-hover: #333333; --cgpe-border: #3a3a3a; --cgpe-border-strong: #4a4a4a;
   --cgpe-chip-bg: #333333; --cgpe-chip-active-bg: #ececec; --cgpe-chip-active-text: #111111;
   --cgpe-input-bg: #242424; --cgpe-overlay-bg: rgba(0, 0, 0, 0.6); --cgpe-accent-bg: #3C3489;
-  --cgpe-accent-fg: #CECBF6;
+  --cgpe-accent-fg: #CECBF6; --cgpe-danger-text: #F09595; --cgpe-danger-border: #791F1F;
 }
 .cgpe-overlay {
   position: fixed; inset: 0; z-index: 2147483647; background: var(--cgpe-overlay-bg);
@@ -57,6 +57,15 @@ html.dark .cgpe-trigger, html.dark .cgpe-overlay {
 .cgpe-close-btn:hover { background: var(--cgpe-chip-bg); color: var(--cgpe-text); }
 .cgpe-close-btn svg { width: 16px; height: 16px; }
 .cgpe-modal-controls { padding: 0 18px 12px; }
+.cgpe-search-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+.cgpe-search-row .cgpe-search-wrap { flex: 1; margin-bottom: 0; }
+.cgpe-add-btn {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 0 14px;
+  border-radius: 12px; border: 0.5px solid var(--cgpe-border); background: var(--cgpe-card-bg);
+  color: var(--cgpe-text); font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.cgpe-add-btn:hover { background: var(--cgpe-card-hover); border-color: var(--cgpe-border-strong); }
+.cgpe-add-btn svg { width: 14px; height: 14px; }
 .cgpe-search-wrap { position: relative; margin-bottom: 10px; }
 .cgpe-search-wrap svg {
   position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px;
@@ -79,6 +88,7 @@ html.dark .cgpe-trigger, html.dark .cgpe-overlay {
 .cgpe-chip-active {
   background: var(--cgpe-chip-active-bg); color: var(--cgpe-chip-active-text); border-color: transparent;
 }
+.cgpe-chip-active:hover { color: var(--cgpe-chip-active-text); border-color: transparent; }
 .cgpe-meta { padding: 0 18px 10px; font-size: 12px; color: var(--cgpe-subtext); min-height: 15px; }
 .cgpe-empty-state { padding: 40px 0; text-align: center; color: var(--cgpe-subtext); font-size: 13px; }
 .cgpe-grid {
@@ -86,10 +96,17 @@ html.dark .cgpe-trigger, html.dark .cgpe-overlay {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; align-content: start;
 }
 .cgpe-card {
-  display: flex; gap: 11px; align-items: flex-start; background: var(--cgpe-card-bg);
+  position: relative; display: flex; gap: 11px; align-items: flex-start; background: var(--cgpe-card-bg);
   border: 0.5px solid var(--cgpe-border); border-radius: 13px; padding: 11px 12px; cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+.cgpe-card-edit-btn {
+  position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 7px; border: none;
+  background: var(--cgpe-chip-bg); color: var(--cgpe-subtext); display: flex; align-items: center;
+  justify-content: center; cursor: pointer;
+}
+.cgpe-card-edit-btn:hover { background: var(--cgpe-border-strong); color: var(--cgpe-text); }
+.cgpe-card-edit-btn svg { width: 12px; height: 12px; }
 .cgpe-card:hover { background: var(--cgpe-card-hover); border-color: var(--cgpe-border-strong); }
 .cgpe-card-icon { width: 32px; height: 32px; flex: none; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .cgpe-card-icon svg { width: 16px; height: 16px; }
@@ -117,6 +134,42 @@ html.dark .cgpe-cat-image .cgpe-card-icon svg { color: #ED93B1; }
   text-overflow: ellipsis;
 }
 .cgpe-sentinel { height: 1px; grid-column: 1 / -1; }
+.cgpe-modal-title-icon-clickable { cursor: pointer; }
+.cgpe-form-view {
+  display: none; flex-direction: column; gap: 14px; padding: 0 18px 18px; overflow-y: auto;
+}
+.cgpe-modal.cgpe-form-mode .cgpe-modal-controls,
+.cgpe-modal.cgpe-form-mode .cgpe-meta,
+.cgpe-modal.cgpe-form-mode .cgpe-grid { display: none; }
+.cgpe-modal.cgpe-form-mode .cgpe-form-view { display: flex; }
+.cgpe-field { display: flex; flex-direction: column; gap: 6px; }
+.cgpe-field label { font-size: 12.5px; color: var(--cgpe-subtext); }
+.cgpe-field-input, .cgpe-field-textarea, .cgpe-field-select {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
+  border: 0.5px solid var(--cgpe-border); background: var(--cgpe-card-bg); color: var(--cgpe-text);
+  font-size: 13.5px; font-family: inherit; outline: none;
+}
+.cgpe-field-input:focus, .cgpe-field-textarea:focus, .cgpe-field-select:focus {
+  border-color: var(--cgpe-border-strong);
+}
+.cgpe-field-textarea { min-height: 120px; resize: vertical; }
+.cgpe-field-inline { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.cgpe-field-inline .cgpe-field { flex: 1; min-width: 140px; }
+.cgpe-checkbox-row {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cgpe-text);
+  padding-bottom: 10px; cursor: pointer;
+}
+.cgpe-checkbox-row input { width: 16px; height: 16px; }
+.cgpe-form-actions { display: flex; align-items: center; gap: 8px; }
+.cgpe-form-actions-spacer { flex: 1; }
+.cgpe-btn-primary, .cgpe-btn-secondary, .cgpe-btn-danger {
+  border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+}
+.cgpe-btn-primary { background: var(--cgpe-chip-active-bg); color: var(--cgpe-chip-active-text); }
+.cgpe-btn-secondary { background: transparent; border: 0.5px solid var(--cgpe-border); color: var(--cgpe-text); }
+.cgpe-btn-danger {
+  background: transparent; border: 0.5px solid var(--cgpe-danger-border); color: var(--cgpe-danger-text);
+}
 `;
 
 export function injectStyles() {
