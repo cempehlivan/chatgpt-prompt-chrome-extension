@@ -198,15 +198,14 @@ document.onreadystatechange = () => {
   }
 };
 
-let currentTitle = document.title;
-
+// ChatGPT bir SPA: kullanıcı eski bir sohbete girip yeniden "yeni sohbet"
+// ekranına döndüğünde URL her zaman /chat olmuyor (çoğunlukla /). Bu yüzden
+// path/title'a güvenmek yerine, tetikleyici DOM'da yokken herhangi bir sayfa
+// değişikliğinde yeniden denemeyi dener; init() zaten h1 yoksa veya buton
+// zaten varsa hiçbir şey yapmıyor, dolayısıyla bu ucuz bir kontrol.
 const observer = new MutationObserver(() => {
-  if (document.title !== currentTitle) {
-    currentTitle = document.title;
-
-    if (document.location.pathname == '/chat') {
-      scheduleInit(500);
-    }
+  if (!document.getElementById(TRIGGER_ID)) {
+    scheduleInit(300);
   }
 });
 
