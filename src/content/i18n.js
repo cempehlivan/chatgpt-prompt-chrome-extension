@@ -85,11 +85,15 @@ function detectLocale() {
       ? navigator.languages
       : [navigator.language];
 
-  for (const lang of langs) {
-    if (lang && lang.toLowerCase().startsWith('tr')) {
+  // for (const lang of langs) {
+  //   if (lang && lang.toLowerCase().startsWith('tr')) {
+  //     return 'tr';
+  //   }
+  // }
+
+    if (langs && langs.length > 0 && langs[0] && langs[0].toLowerCase().startsWith('tr')) {
       return 'tr';
     }
-  }
 
   return 'en';
 }
