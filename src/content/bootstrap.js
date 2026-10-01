@@ -1,6 +1,14 @@
 import { STRINGS } from './i18n.js';
 import { injectStyles } from './styles.js';
-import { buildTrigger, placeTrigger, TRIGGER_ID } from './trigger.js';
+import {
+  buildTrigger,
+  placeTrigger,
+  isPlacementValid,
+  setPlacementLostHandler,
+  TRIGGER_ID,
+  TRIGGER_HOST_ID,
+} from './trigger.js';
+import { findComposerForm, findHeading } from './selectors.js';
 import { buildModal } from './modal.js';
 import { getPrompts } from './prompts-data.js';
 import { getCustomPrompts } from './custom-prompts.js';
@@ -9,6 +17,7 @@ let isInitializing = false;
 let pendingTimer = null;
 let promptsPromise = null;
 let modalController = null;
+let triggerEl = null;
 
 document.onreadystatechange = () => {
   if (document.readyState === 'complete') {
@@ -17,21 +26,30 @@ document.onreadystatechange = () => {
 };
 
 const observer = new MutationObserver(() => {
-  if (!document.getElementById(TRIGGER_ID)) {
-    scheduleInit(300);
+  // ChatGPT akış sırasında saniyede yüzlerce mutasyon üretiyor; bu geri çağrı
+  // bir DOM sorgusu değil, tek bir alan okumasıyla çıkabilmeli.
+  if (isPlacementValid(triggerEl)) {
+    return;
   }
+  scheduleInit(300);
 });
 
-const config = { subtree: true, childList: true };
-observer.observe(document, config);
+observer.observe(document.body || document.documentElement, {
+  subtree: true,
+  childList: true,
+});
+
+setPlacementLostHandler(() => scheduleInit(200));
 
 window.addEventListener('beforeunload', function (event) {
   observer.disconnect();
 });
 
 function scheduleInit(delay) {
+  // Zamanlayıcıyı her mutasyonda yeniden kurmak, DOM hiç durulmadığında
+  // init'in hiç çalışmamasına yol açıyordu. Planlanmışsa dokunma.
   if (pendingTimer) {
-    clearTimeout(pendingTimer);
+    return;
   }
   pendingTimer = setTimeout(() => {
     pendingTimer = null;
@@ -40,12 +58,23 @@ function scheduleInit(delay) {
 }
 
 async function init() {
-  if (isInitializing || document.getElementById(TRIGGER_ID)) {
+  if (isInitializing) {
     return;
   }
 
-  const h1Element = document.querySelector('h1');
-  if (!h1Element) {
+  const existing = document.getElementById(TRIGGER_ID);
+  if (existing) {
+    triggerEl = existing;
+    // Sayfa içi gezinmede ChatGPT composer'ı yeniden oluşturuyor; buton
+    // ayakta ama yanlış yerde kalabiliyor.
+    if (!isPlacementValid(existing)) {
+      placeTrigger(existing, findHeading());
+    }
+    return;
+  }
+
+  const h1Element = findHeading();
+  if (!h1Element && !findComposerForm()) {
     return;
   }
 
@@ -54,8 +83,14 @@ async function init() {
   try {
     injectStyles();
 
+    const staleHost = document.getElementById(TRIGGER_HOST_ID);
+    if (staleHost) {
+      staleHost.remove();
+    }
+
     const trigger = buildTrigger();
     placeTrigger(trigger, h1Element);
+    triggerEl = trigger;
 
     if (!modalController) {
       modalController = buildModal();

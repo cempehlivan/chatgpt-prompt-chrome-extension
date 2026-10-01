@@ -152,9 +152,9 @@ export function buildModal() {
 
   const variableForm = buildVariableForm({
     onCancel: () => showListView(),
-    onConfirm: (finalText) => {
-      insertPrompt(finalText);
+    onConfirm: async (finalText) => {
       close();
+      await insertPrompt(finalText);
     },
   });
 

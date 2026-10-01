@@ -1,7 +1,46 @@
 import { icon } from './icons.js';
 import { STRINGS } from './i18n.js';
+import { findComposerForm } from './selectors.js';
 
 export const TRIGGER_ID = 'cgpe-trigger';
+export const TRIGGER_HOST_ID = 'cgpe-trigger-host';
+
+// Son yerleşimin referansları. Doğrulama her mutasyonda çalıştığı için
+// DOM sorgusu değil, yalnızca referans karşılaştırması yapar.
+let placedForm = null;
+let placedHost = null;
+let placementLost = false;
+let sizeWatcher = null;
+let onPlacementLost = null;
+
+// Bağlandığımız composer gizlenince DOM referansları geçerli kalıyor, bu yüzden
+// referans karşılaştırması yetmiyor. Her mutasyonda yerleşim ölçmek pahalı
+// olacağından boyut değişimini ResizeObserver ile olay tabanlı yakalıyoruz.
+function watchHostSize(host) {
+  if (typeof ResizeObserver === 'undefined') {
+    return;
+  }
+  if (!sizeWatcher) {
+    sizeWatcher = new ResizeObserver((entries) => {
+      const collapsed = entries.some(
+        (entry) =>
+          entry.contentRect.width === 0 || entry.contentRect.height === 0
+      );
+      if (collapsed && !placementLost) {
+        placementLost = true;
+        if (onPlacementLost) {
+          onPlacementLost();
+        }
+      }
+    });
+  }
+  sizeWatcher.disconnect();
+  sizeWatcher.observe(host);
+}
+
+export function setPlacementLostHandler(handler) {
+  onPlacementLost = handler;
+}
 
 export function buildTrigger() {
   const trigger = document.createElement('button');
@@ -16,84 +55,62 @@ export function buildTrigger() {
   return trigger;
 }
 
-function findSuggestionRow() {
-  const scope =
-    document.getElementById('main') ||
-    document.querySelector('main') ||
-    document;
-  const buttons = Array.from(scope.querySelectorAll('button'));
+function buildHost(trigger) {
+  trigger.removeAttribute('style');
 
-  for (const btn of buttons) {
-    if (btn.id === TRIGGER_ID) {
-      continue;
-    }
-    const text = btn.textContent.trim();
-    if (!btn.querySelector('svg') || !text || text.length > 40) {
-      continue;
-    }
-
-    const wrapper = btn.parentElement;
-    const row = wrapper && wrapper.parentElement;
-    if (!row) {
-      continue;
-    }
-
-    const siblingPillButtons = Array.from(
-      row.querySelectorAll('button')
-    ).filter((b) => b.id !== TRIGGER_ID && b.querySelector('svg'));
-
-    if (siblingPillButtons.length >= 2) {
-      return { row, referenceButton: btn };
-    }
+  const existing = document.getElementById(TRIGGER_HOST_ID);
+  const host = existing || document.createElement('div');
+  if (!existing) {
+    host.id = TRIGGER_HOST_ID;
+    host.className = 'cgpe-trigger-host';
   }
-
-  return null;
+  host.appendChild(trigger);
+  return host;
 }
 
-function matchPillStyle(trigger, referenceButton) {
-  const cs = window.getComputedStyle(referenceButton);
-  trigger.style.height = cs.height;
-  trigger.style.padding = cs.padding;
-  trigger.style.borderRadius = cs.borderRadius;
-  trigger.style.border = cs.border;
-  trigger.style.fontSize = cs.fontSize;
-  trigger.style.gap = cs.gap;
-  trigger.style.margin = '0';
-  trigger.style.boxSizing = 'border-box';
-}
-
-function mountTriggerInRow(trigger, suggestion) {
-  matchPillStyle(trigger, suggestion.referenceButton);
-  trigger.classList.remove('cgpe-trigger-fallback');
-  const wrapper = document.createElement('div');
-  wrapper.className = 'w-full sm:w-auto';
-  wrapper.appendChild(trigger);
-  suggestion.row.appendChild(wrapper);
-}
-
-function retryPlaceInRow(trigger, attemptsLeft) {
-  if (attemptsLeft <= 0 || !trigger.isConnected) {
-    return;
-  }
-  setTimeout(() => {
-    const suggestion = findSuggestionRow();
-    if (suggestion) {
-      mountTriggerInRow(trigger, suggestion);
-    } else {
-      retryPlaceInRow(trigger, attemptsLeft - 1);
-    }
-  }, 400);
+export function isPlacementValid(trigger) {
+  return Boolean(
+    !placementLost &&
+      trigger &&
+      trigger.isConnected &&
+      placedHost &&
+      placedHost.isConnected &&
+      placedForm &&
+      placedForm.isConnected &&
+      placedHost.previousElementSibling === placedForm
+  );
 }
 
 export function placeTrigger(trigger, h1Element) {
-  const suggestion = findSuggestionRow();
+  const form = findComposerForm();
 
-  if (suggestion) {
-    mountTriggerInRow(trigger, suggestion);
-    return;
+  if (form && form.parentElement) {
+    const host = buildHost(trigger);
+    form.insertAdjacentElement('afterend', host);
+    placedForm = form;
+    placedHost = host;
+    placementLost = false;
+    watchHostSize(host);
+    return true;
   }
 
-  trigger.classList.add('cgpe-trigger-fallback');
-  h1Element.parentNode.appendChild(trigger);
-  retryPlaceInRow(trigger, 8);
+  placedForm = null;
+  placedHost = null;
+  placementLost = false;
+  if (sizeWatcher) {
+    sizeWatcher.disconnect();
+  }
+
+  // Composer henüz yoksa başlığın altına koy. Başlık kapsayıcısının *içine*
+  // eklemek orada absolute konumlanan başlıkla çakışmaya yol açıyor; bu
+  // yüzden kapsayıcının ardına eklenir. Composer belirince init yeniden
+  // konumlandırır.
+  const anchor = h1Element && h1Element.parentElement;
+  if (anchor && anchor.parentElement) {
+    const host = buildHost(trigger);
+    anchor.insertAdjacentElement('afterend', host);
+    placedHost = host;
+  }
+
+  return false;
 }

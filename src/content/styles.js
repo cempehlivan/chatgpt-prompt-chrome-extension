@@ -1,5 +1,38 @@
 const STYLE_ID = 'cgpe-prompts-style';
 
+const THEMED_ROOTS = ['.cgpe-trigger', '.cgpe-overlay'];
+
+const expand = (prefix) =>
+  THEMED_ROOTS.map((root) => `${prefix} ${root}`.trim()).join(', ');
+
+// ChatGPT temayı eskiden `html.dark` ile, yeni sürümlerde
+// `html[data-theme="dark"]` ile işaretliyor; ikisini de destekle.
+const LIGHT_SELECTORS = expand('');
+const DARK_SELECTORS = [
+  expand('html.dark'),
+  expand('html[data-theme="dark"]'),
+].join(', ');
+const SYSTEM_DARK_SELECTORS = [
+  expand('html[data-theme="system"]'),
+  expand('html[data-theme="auto"]'),
+].join(', ');
+
+const LIGHT_VARS = `
+  --cgpe-text: #111827; --cgpe-subtext: #6b7280; --cgpe-card-bg: #ffffff;
+  --cgpe-card-hover: #f6f6f7; --cgpe-border: #e5e7eb; --cgpe-border-strong: #d1d5db;
+  --cgpe-chip-bg: #f3f4f6; --cgpe-chip-active-bg: #111827; --cgpe-chip-active-text: #ffffff;
+  --cgpe-input-bg: #ffffff; --cgpe-overlay-bg: rgba(15, 15, 15, 0.45); --cgpe-accent-bg: #EEEDFE;
+  --cgpe-accent-fg: #3C3489; --cgpe-danger-text: #A32D2D; --cgpe-danger-border: #F09595;
+`;
+
+const DARK_VARS = `
+  --cgpe-text: #ececec; --cgpe-subtext: #9b9b9b; --cgpe-card-bg: #2a2a2a;
+  --cgpe-card-hover: #333333; --cgpe-border: #3a3a3a; --cgpe-border-strong: #4a4a4a;
+  --cgpe-chip-bg: #333333; --cgpe-chip-active-bg: #ececec; --cgpe-chip-active-text: #111111;
+  --cgpe-input-bg: #242424; --cgpe-overlay-bg: rgba(0, 0, 0, 0.6); --cgpe-accent-bg: #3C3489;
+  --cgpe-accent-fg: #CECBF6; --cgpe-danger-text: #F09595; --cgpe-danger-border: #791F1F;
+`;
+
 const STYLE_TEXT = `
 .cgpe-trigger {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 12px;
@@ -8,7 +41,10 @@ const STYLE_TEXT = `
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .cgpe-trigger:hover { background: var(--cgpe-card-hover); border-color: var(--cgpe-border-strong); }
-.cgpe-trigger-fallback { margin: 20px auto 0; }
+.cgpe-trigger-host {
+  display: flex; justify-content: center; align-items: center; width: 100%;
+  margin: 12px 0 4px; position: relative; z-index: 1; pointer-events: auto;
+}
 .cgpe-trigger-icon {
   width: 22px; height: 22px; border-radius: 7px; background: var(--cgpe-accent-bg); display: flex;
   align-items: center; justify-content: center; flex: none;
@@ -18,19 +54,10 @@ const STYLE_TEXT = `
   font-size: 11.5px; color: var(--cgpe-subtext); background: var(--cgpe-chip-bg); border-radius: 999px;
   padding: 2px 8px;
 }
-html:not(.dark) .cgpe-trigger, html:not(.dark) .cgpe-overlay {
-  --cgpe-text: #111827; --cgpe-subtext: #6b7280; --cgpe-card-bg: #ffffff;
-  --cgpe-card-hover: #f6f6f7; --cgpe-border: #e5e7eb; --cgpe-border-strong: #d1d5db;
-  --cgpe-chip-bg: #f3f4f6; --cgpe-chip-active-bg: #111827; --cgpe-chip-active-text: #ffffff;
-  --cgpe-input-bg: #ffffff; --cgpe-overlay-bg: rgba(15, 15, 15, 0.45); --cgpe-accent-bg: #EEEDFE;
-  --cgpe-accent-fg: #3C3489; --cgpe-danger-text: #A32D2D; --cgpe-danger-border: #F09595;
-}
-html.dark .cgpe-trigger, html.dark .cgpe-overlay {
-  --cgpe-text: #ececec; --cgpe-subtext: #9b9b9b; --cgpe-card-bg: #2a2a2a;
-  --cgpe-card-hover: #333333; --cgpe-border: #3a3a3a; --cgpe-border-strong: #4a4a4a;
-  --cgpe-chip-bg: #333333; --cgpe-chip-active-bg: #ececec; --cgpe-chip-active-text: #111111;
-  --cgpe-input-bg: #242424; --cgpe-overlay-bg: rgba(0, 0, 0, 0.6); --cgpe-accent-bg: #3C3489;
-  --cgpe-accent-fg: #CECBF6; --cgpe-danger-text: #F09595; --cgpe-danger-border: #791F1F;
+${LIGHT_SELECTORS} { ${LIGHT_VARS} }
+${DARK_SELECTORS} { ${DARK_VARS} }
+@media (prefers-color-scheme: dark) {
+  ${SYSTEM_DARK_SELECTORS} { ${DARK_VARS} }
 }
 .cgpe-overlay {
   position: fixed; inset: 0; z-index: 2147483647; background: var(--cgpe-overlay-bg);

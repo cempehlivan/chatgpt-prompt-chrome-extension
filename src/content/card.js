@@ -44,15 +44,16 @@ export function buildCard(prompt, onSelect, onEdit, onFill) {
     li.appendChild(editBtn);
   }
 
-  li.addEventListener('click', () => {
+  li.addEventListener('click', async () => {
     if (hasVariables(prompt.prompt)) {
       onFill(prompt);
       return;
     }
-    insertPrompt(prompt.prompt);
+    // Önce modalı kapat ki odak son olarak composer'da kalsın.
     if (onSelect) {
       onSelect();
     }
+    await insertPrompt(prompt.prompt);
   });
 
   return li;
